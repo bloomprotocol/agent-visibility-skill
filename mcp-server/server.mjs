@@ -44,7 +44,7 @@ import {
 const API_BASE = process.env.BLOOM_API_BASE || 'https://bloomprotocol.ai';
 let API_KEY = process.env.BLOOM_API_KEY || ''; // mutable — register_agent updates in-session
 const SERVER_NAME = 'bloom-protocol';
-const SERVER_VERSION = '0.1.0';
+const SERVER_VERSION = '0.2.0';
 const FETCH_TIMEOUT_MS = 15_000; // hung-call guard for Claude Desktop demos
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────
@@ -159,6 +159,13 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => ({
       mimeType: 'application/json',
     },
     {
+      uri: 'bloom://playbooks/active',
+      name: 'Active Bloom playbooks',
+      description:
+        'Curated playbook library — markdown skills your agent runs locally. Use list_playbooks tool for filters.',
+      mimeType: 'application/json',
+    },
+    {
       uri: 'bloom://agent/me',
       name: 'Your Bloom agent profile',
       description:
@@ -168,8 +175,7 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => ({
   ],
 }));
 
-// Expose the dynamic mission detail resource via a template so MCP clients
-// know they can dereference bloom://missions/{id} URIs.
+// Resource templates — for client URI dereferencing.
 server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => ({
   resourceTemplates: [
     {
@@ -178,6 +184,13 @@ server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => ({
       description:
         'Full detail for a single mission by ID — reward, slots, quality threshold, recommended playbook.',
       mimeType: 'application/json',
+    },
+    {
+      uriTemplate: 'bloom://playbooks/{playbookId}',
+      name: 'Bloom playbook content',
+      description:
+        'Full markdown / YAML content for a playbook — the spec your agent runs locally.',
+      mimeType: 'text/markdown',
     },
   ],
 }));
@@ -238,6 +251,45 @@ server.setRequestHandler(ReadResourceRequestSchema, async req => {
           uri,
           mimeType: 'application/json',
           text: JSON.stringify(data?.data ?? data, null, 2),
+        },
+      ],
+    };
+  }
+
+  if (uri === 'bloom://playbooks/active') {
+    const index = await bloomFetch('/paste-blocks/index.json');
+    const all = Array.isArray(index?.playbooks) ? index.playbooks : [];
+    const active = all.filter(p => (p.status ?? 'active') === 'active');
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'application/json',
+          text: JSON.stringify({ playbooks: active, total: active.length }, null, 2),
+        },
+      ],
+    };
+  }
+
+  if (uri.startsWith('bloom://playbooks/')) {
+    const id = uri.replace('bloom://playbooks/', '');
+    const index = await bloomFetch('/paste-blocks/index.json');
+    const all = [
+      ...(Array.isArray(index?.playbooks) ? index.playbooks : []),
+      ...(Array.isArray(index?.hidden) ? index.hidden : []),
+    ];
+    const found = all.find(p => p.id === id);
+    if (!found || !found.file) {
+      throw new Error(`Playbook "${id}" not found or has no file.`);
+    }
+    const res = await fetch(`${API_BASE}${found.file}`);
+    const text = await res.text();
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'text/markdown',
+          text,
         },
       ],
     };
@@ -364,6 +416,84 @@ const TOOLS = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'list_playbooks',
+    description:
+      'Discover Bloom playbooks (markdown skills) available to run locally. Filter by tribe or status. Each playbook returns id, title, tribe, difficulty, status, recommendedPlaybook hint, and the URL of the full markdown.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tribe: {
+          type: 'string',
+          enum: ['launch', 'grow', 'sanctuary'],
+          description: 'Optional tribe filter.',
+        },
+        status: {
+          type: 'string',
+          enum: ['active', 'coming-soon'],
+          description: 'Optional status filter. Default: active.',
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'get_playbook',
+    description:
+      'Fetch the full markdown / YAML content of a Bloom playbook by ID. Use this to obtain the playbook spec your agent should execute locally. Examples: "ai-recommendation-playbook-v1", "launch-committee-v1", "comparison-page-generator-v1".',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        playbookId: {
+          type: 'string',
+          description: 'Playbook ID from list_playbooks (e.g. "ai-visibility-audit-v1").',
+        },
+      },
+      required: ['playbookId'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'submit_evaluation',
+    description:
+      "Submit feedback on a playbook you ran. Builds tribal knowledge — high-quality feedback improves future playbook versions and earns +10 reputation in the 'community' dimension.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        playbookId: { type: 'string', description: 'Playbook you ran.' },
+        rating: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 5,
+          description: '1-5 stars on playbook quality.',
+        },
+        discovery: {
+          type: 'string',
+          minLength: 50,
+          maxLength: 2000,
+          description:
+            'What surprised you running this? Min 50 chars. Specific insight beats generic praise.',
+        },
+        methodology: {
+          type: 'string',
+          maxLength: 2000,
+          description: 'Optional: how you tested it.',
+        },
+        sampleSize: {
+          type: 'string',
+          maxLength: 200,
+          description: 'Optional: e.g. "50 articles".',
+        },
+        timeframe: {
+          type: 'string',
+          maxLength: 200,
+          description: 'Optional: e.g. "2 weeks".',
+        },
+      },
+      required: ['playbookId', 'rating', 'discovery'],
+      additionalProperties: false,
+    },
+  },
 ];
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -467,6 +597,104 @@ server.setRequestHandler(CallToolRequestSchema, async req => {
             ? 'Authenticated for this session. To persist across restarts, set BLOOM_API_KEY=' +
               issuedKey
             : 'No apiKey returned — registration may have failed silently.',
+        });
+      }
+
+      case 'list_playbooks': {
+        const data = await bloomFetch('/paste-blocks/index.json');
+        const all = Array.isArray(data?.playbooks) ? data.playbooks : [];
+        const status = args.status ?? 'active';
+        let filtered = all.filter(p => (p.status ?? 'active') === status);
+        if (args.tribe) filtered = filtered.filter(p => p.tribe === args.tribe);
+        const summary = filtered.map(p => ({
+          id: p.id,
+          tribe: p.tribe,
+          title: p.title,
+          difficulty: p.difficulty ?? null,
+          status: p.status ?? 'active',
+          skills: p.skills ?? null,
+          avgImpact: p.avgImpact ?? null,
+          file: p.file ? `${API_BASE}${p.file}` : null,
+          note: p.note ?? null,
+          worldIdRequired: p.worldIdRequired ?? false,
+        }));
+        return jsonResult({
+          playbooks: summary,
+          total: summary.length,
+          hint:
+            summary.length === 0
+              ? 'No matching playbooks. Drop the filters or try status=coming-soon.'
+              : 'Use get_playbook with the id to fetch the full markdown content.',
+        });
+      }
+
+      case 'get_playbook': {
+        if (!args.playbookId) throw new Error('playbookId is required');
+        // Index gives us the file path; fetch raw markdown.
+        const index = await bloomFetch('/paste-blocks/index.json');
+        const all = [
+          ...(Array.isArray(index?.playbooks) ? index.playbooks : []),
+          ...(Array.isArray(index?.hidden) ? index.hidden : []),
+        ];
+        const found = all.find(p => p.id === args.playbookId);
+        if (!found) {
+          throw new Error(
+            `Playbook "${args.playbookId}" not in index. Try list_playbooks first.`,
+          );
+        }
+        if (!found.file) {
+          throw new Error(
+            `Playbook "${args.playbookId}" has no file (likely coming-soon). status=${found.status}`,
+          );
+        }
+        // Fetch the playbook content directly as text (not JSON wrapper)
+        const url = `${API_BASE}${found.file}`;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+        let text;
+        try {
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timer);
+          if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${found.file}`);
+          text = await res.text();
+        } catch (err) {
+          clearTimeout(timer);
+          if (err.name === 'AbortError') {
+            throw new Error(`Playbook fetch timeout (${FETCH_TIMEOUT_MS}ms): ${found.file}`);
+          }
+          throw err;
+        }
+        return {
+          content: [
+            { type: 'text', text: `# ${found.title}\n\n[Playbook ID: ${found.id} · Tribe: ${found.tribe}]\n\n${text}` },
+          ],
+        };
+      }
+
+      case 'submit_evaluation': {
+        requireAuth('submit_evaluation');
+        if (!args.playbookId || args.rating == null || !args.discovery) {
+          throw new Error('playbookId, rating, and discovery are required');
+        }
+        if (args.discovery.length < 50) {
+          throw new Error('discovery must be at least 50 characters');
+        }
+        const body = {
+          playbookId: args.playbookId,
+          rating: args.rating,
+          discovery: args.discovery,
+        };
+        if (args.methodology) body.methodology = args.methodology;
+        if (args.sampleSize) body.sampleSize = args.sampleSize;
+        if (args.timeframe) body.timeframe = args.timeframe;
+        const data = await bloomFetch('/api/agent/evaluate', {
+          method: 'POST',
+          body: JSON.stringify(body),
+        });
+        return jsonResult({
+          ...data?.data,
+          _hint:
+            'Evaluation recorded. Reputation typically updates within seconds — call get_reputation to verify.',
         });
       }
 
