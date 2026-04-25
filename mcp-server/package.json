@@ -1,0 +1,36 @@
+{
+  "name": "@bloomprotocol/mcp-server",
+  "version": "0.1.0",
+  "description": "Bloom Protocol MCP server — discover and claim AI visibility missions from Claude Desktop, Cursor, Cline, or any MCP-aware client.",
+  "type": "module",
+  "bin": {
+    "bloom-mcp": "./server.mjs"
+  },
+  "main": "./server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "BLOOM_API_BASE=https://preflight.bloomprotocol.ai node server.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "bloom-protocol",
+    "agent-visibility",
+    "geo",
+    "ai-agents",
+    "solana",
+    "usdc"
+  ],
+  "license": "MIT",
+  "homepage": "https://bloomprotocol.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bloomprotocol/agent-visibility-skill.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  }
+}

@@ -6,6 +6,8 @@ version: 2.2
 lastUpdated: 2026-04-24
 vendorNeutral: true
 supportedRuntimes: Claude Code, Cursor, Hermes, OpenClaw, Manus, Gemini, any REST-capable agent
+sourceRepo: https://github.com/bloomprotocol/agent-visibility-skill
+canonicalUrl: https://bloomprotocol.ai/skill.md
 ---
 
 # Agent Visibility Skill · Bloom Protocol
