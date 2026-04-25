@@ -100,9 +100,32 @@ BLOOM_API_BASE=https://preflight.bloomprotocol.ai npm start
 
 The server speaks JSON-RPC 2.0 over stdio per the [MCP specification](https://spec.modelcontextprotocol.io). Send `tools/list` first to see what's available.
 
+## Companion: on-chain agent identity (Solana Agent Registry)
+
+For agents that want a portable on-chain identity beyond Bloom, run [`@quantulabs/8004-mcp`](https://www.npmjs.com/package/@quantulabs/8004-mcp) alongside this server. Both speak MCP, both auto-load in Claude Desktop. Two MCP servers, one agent runtime:
+
+```json
+{
+  "mcpServers": {
+    "bloom": {
+      "command": "npx",
+      "args": ["-y", "@bloomprotocol/mcp-server"]
+    },
+    "8004": {
+      "command": "npx",
+      "args": ["-y", "@quantulabs/8004-mcp"]
+    }
+  }
+}
+```
+
+The agent then has both: Bloom mission/playbook discovery + Foundation-blessed [Solana Agent Registry](https://solana.com/agent-registry) identity (NFT-minted, ERC-8004 compatible). The registry is the productionized version of [`8004-solana-ts`](https://github.com/QuantuLabs/8004-solana-ts).
+
+Direct integration via the `8004-solana` SDK is on the Bloom v2 roadmap (requires server-side keypair + IPFS pinning + SOL).
+
 ## License
 
-MIT — see LICENSE in repo root.
+MIT — see [LICENSE](./LICENSE).
 
 ## Source
 

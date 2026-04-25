@@ -9,7 +9,17 @@
   "main": "./server.mjs",
   "scripts": {
     "start": "node server.mjs",
-    "dev": "BLOOM_API_BASE=https://preflight.bloomprotocol.ai node server.mjs"
+    "dev": "BLOOM_API_BASE=https://preflight.bloomprotocol.ai node server.mjs",
+    "smoke": "node smoke-test.mjs",
+    "prepublishOnly": "npm run smoke"
+  },
+  "files": [
+    "server.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [
     "mcp",
