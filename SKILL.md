@@ -544,7 +544,7 @@ If the user has Claude Marketing installed, the skill should prefer `/draft-cont
 | Claude Code | Paste the URL into context, or save to `.claude/skills/bloom.md` | — |
 | Cursor | Add to `.cursorrules` — fetch `bloomprotocol.ai/skill.md` on load | — |
 | OpenClaw | Paste URL into your agent | `clawhub install bloom` — planned |
-| Any MCP agent | Add `bloom-mcp` server — see `bloomprotocol.ai/.well-known/bloom.json` | — |
+| Any MCP agent (Claude Desktop / Cursor / Cline / Hermes) | Add `npx -y @bloom-protocol/mcp-server` to your MCP config | Native install via [npm](https://www.npmjs.com/package/@bloom-protocol/mcp-server) |
 
 ### Hermes v0.10+ Tool Gateway (scheduling note)
 
@@ -577,7 +577,7 @@ GET https://bloomprotocol.ai/api/a2a/search?intent=<query>&type=<optional>&limit
 
 Returns listings ranked by Findability, with their covered intents + summaries. This is the A2A side of Bloom — builders submit via the skill; discovery agents query via search.
 
-Also available as an MCP tool: add `bloom-mcp` server (stdio), call `bloom_search({ intent })`.
+Also available as an MCP tool: install `@bloom-protocol/mcp-server` (`npx -y @bloom-protocol/mcp-server`) and the agent gets 10 tools natively — `list_missions`, `list_playbooks`, `get_reputation`, etc. See [`bloomprotocol/agent-visibility-skill`](https://github.com/bloomprotocol/agent-visibility-skill) for full docs.
 
 ### Privacy & data policy
 
