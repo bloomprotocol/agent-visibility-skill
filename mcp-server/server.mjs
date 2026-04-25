@@ -273,17 +273,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async req => {
 
   if (uri.startsWith('bloom://playbooks/')) {
     const id = uri.replace('bloom://playbooks/', '');
-    const index = await bloomFetch('/paste-blocks/index.json');
-    const all = [
-      ...(Array.isArray(index?.playbooks) ? index.playbooks : []),
-      ...(Array.isArray(index?.hidden) ? index.hidden : []),
-    ];
-    const found = all.find(p => p.id === id);
-    if (!found || !found.file) {
-      throw new Error(`Playbook "${id}" not found or has no file.`);
-    }
-    const res = await fetch(`${API_BASE}${found.file}`);
-    const text = await res.text();
+    const text = await fetchPlaybookContent(id);
     return {
       contents: [
         {
@@ -573,6 +563,17 @@ server.setRequestHandler(CallToolRequestSchema, async req => {
         if (!Array.isArray(args.capabilities) || args.capabilities.length === 0) {
           throw new Error('capabilities must be a non-empty array of strings');
         }
+        // Fail fast on malformed wallet addresses — better than waiting for
+        // the backend to reject and the agent to wonder why.
+        let walletNetwork = null;
+        if (args.walletAddress) {
+          walletNetwork = detectWalletNetwork(args.walletAddress);
+          if (walletNetwork === 'unknown') {
+            throw new Error(
+              `walletAddress "${args.walletAddress}" is neither an EVM address (0x...) nor a Solana address (base58). USDC payouts route by chain — get this right.`,
+            );
+          }
+        }
         const body = {
           name: args.name,
           description: args.description,
@@ -591,8 +592,24 @@ server.setRequestHandler(CallToolRequestSchema, async req => {
         if (issuedKey && typeof issuedKey === 'string') {
           API_KEY = issuedKey;
         }
+        // Echo the chain we detected so the agent runtime knows which rail
+        // payouts will travel on (Solana vs EVM/Base). Mint + token addresses
+        // are stable: USDC on Solana = EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+        // USDC on Base = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+        const payoutRail = walletNetwork
+          ? {
+              network: walletNetwork === 'solana' ? 'solana-mainnet' : 'base-mainnet',
+              asset: 'USDC',
+              mint:
+                walletNetwork === 'solana'
+                  ? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+                  : '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+              decimals: 6,
+            }
+          : null;
         return jsonResult({
           ...data?.data,
+          _payoutRail: payoutRail,
           _sessionAuth: issuedKey
             ? 'Authenticated for this session. To persist across restarts, set BLOOM_API_KEY=' +
               issuedKey
@@ -630,45 +647,10 @@ server.setRequestHandler(CallToolRequestSchema, async req => {
 
       case 'get_playbook': {
         if (!args.playbookId) throw new Error('playbookId is required');
-        // Index gives us the file path; fetch raw markdown.
-        const index = await bloomFetch('/paste-blocks/index.json');
-        const all = [
-          ...(Array.isArray(index?.playbooks) ? index.playbooks : []),
-          ...(Array.isArray(index?.hidden) ? index.hidden : []),
-        ];
-        const found = all.find(p => p.id === args.playbookId);
-        if (!found) {
-          throw new Error(
-            `Playbook "${args.playbookId}" not in index. Try list_playbooks first.`,
-          );
-        }
-        if (!found.file) {
-          throw new Error(
-            `Playbook "${args.playbookId}" has no file (likely coming-soon). status=${found.status}`,
-          );
-        }
-        // Fetch the playbook content directly as text (not JSON wrapper)
-        const url = `${API_BASE}${found.file}`;
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-        let text;
-        try {
-          const res = await fetch(url, { signal: controller.signal });
-          clearTimeout(timer);
-          if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${found.file}`);
-          text = await res.text();
-        } catch (err) {
-          clearTimeout(timer);
-          if (err.name === 'AbortError') {
-            throw new Error(`Playbook fetch timeout (${FETCH_TIMEOUT_MS}ms): ${found.file}`);
-          }
-          throw err;
-        }
-        return {
-          content: [
-            { type: 'text', text: `# ${found.title}\n\n[Playbook ID: ${found.id} · Tribe: ${found.tribe}]\n\n${text}` },
-          ],
-        };
+        const text = await fetchPlaybookContent(args.playbookId);
+        // Return exact playbook bytes — no banner injection, so frontmatter
+        // parsers in the agent runtime see the raw spec unchanged.
+        return { content: [{ type: 'text', text }] };
       }
 
       case 'submit_evaluation': {
@@ -715,6 +697,60 @@ server.setRequestHandler(CallToolRequestSchema, async req => {
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
+
+/**
+ * Fetch playbook content by ID with timeout + res.ok handling.
+ * Used by both the get_playbook tool and the bloom://playbooks/{id} resource.
+ * Returns the raw playbook bytes — no header injection.
+ */
+async function fetchPlaybookContent(playbookId) {
+  const index = await bloomFetch('/paste-blocks/index.json');
+  const all = [
+    ...(Array.isArray(index?.playbooks) ? index.playbooks : []),
+    ...(Array.isArray(index?.hidden) ? index.hidden : []),
+  ];
+  const found = all.find(p => p.id === playbookId);
+  if (!found) {
+    throw new Error(`Playbook "${playbookId}" not in index. Try list_playbooks first.`);
+  }
+  if (!found.file) {
+    throw new Error(
+      `Playbook "${playbookId}" has no file (likely coming-soon). status=${found.status ?? 'unknown'}`,
+    );
+  }
+  const url = `${API_BASE}${found.file}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} fetching ${found.file}`);
+    }
+    return await res.text();
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      throw new Error(`Playbook fetch timeout (${FETCH_TIMEOUT_MS}ms): ${found.file}`);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Lightweight wallet-address validator. Mirrors the logic in
+ * src/lib/utils/detectAgentNetwork.ts so the MCP server can fail fast
+ * before round-tripping to the backend.
+ */
+const EVM_PATTERN = /^0x[a-fA-F0-9]{40}$/;
+const SOLANA_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+function detectWalletNetwork(addr) {
+  if (!addr || typeof addr !== 'string') return 'unknown';
+  const t = addr.trim();
+  if (EVM_PATTERN.test(t)) return 'evm';
+  if (SOLANA_PATTERN.test(t) && !t.startsWith('0x')) return 'solana';
+  return 'unknown';
+}
 
 function jsonResult(obj) {
   return {
