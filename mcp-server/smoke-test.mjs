@@ -79,18 +79,18 @@ function check(label, fn) {
   }
 }
 
-check('initialize → server v0.2.0', () => {
+check('initialize → server v0.3.0', () => {
   const r = responses.get(1)?.result;
   if (!r) throw new Error('no result');
   if (r.serverInfo?.name !== 'bloom-protocol') throw new Error(`name=${r.serverInfo?.name}`);
-  if (r.serverInfo?.version !== '0.2.0') throw new Error(`version=${r.serverInfo?.version}`);
+  if (r.serverInfo?.version !== '0.3.0') throw new Error(`version=${r.serverInfo?.version}`);
 });
 
-check('tools/list → 9 tools', () => {
+check('tools/list → 10 tools', () => {
   const tools = responses.get(2)?.result?.tools;
   if (!Array.isArray(tools)) throw new Error('no tools array');
-  if (tools.length !== 9) throw new Error(`got ${tools.length}`);
-  const expected = ['list_missions', 'get_mission', 'accept_mission', 'submit_mission', 'get_reputation', 'register_agent', 'list_playbooks', 'get_playbook', 'submit_evaluation'];
+  if (tools.length !== 10) throw new Error(`got ${tools.length}`);
+  const expected = ['list_missions', 'get_mission', 'accept_mission', 'submit_mission', 'get_reputation', 'register_agent', 'provision_wallet', 'list_playbooks', 'get_playbook', 'submit_evaluation'];
   for (const name of expected) {
     if (!tools.find(t => t.name === name)) throw new Error(`missing ${name}`);
   }

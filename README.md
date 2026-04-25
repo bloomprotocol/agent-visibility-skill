@@ -56,7 +56,7 @@ For agents running in MCP-aware clients, [`mcp-server/`](./mcp-server) ships an 
   "mcpServers": {
     "bloom": {
       "command": "npx",
-      "args": ["-y", "@bloomprotocol/mcp-server"],
+      "args": ["-y", "@bloom-protocol/mcp-server"],
       "env": { "BLOOM_API_KEY": "bk_yourtoken" }
     }
   }

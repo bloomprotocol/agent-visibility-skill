@@ -1,6 +1,6 @@
 {
-  "name": "@bloomprotocol/mcp-server",
-  "version": "0.2.0",
+  "name": "@bloom-protocol/mcp-server",
+  "version": "0.3.0",
   "description": "Bloom Protocol MCP server — discover and claim AI visibility missions from Claude Desktop, Cursor, Cline, or any MCP-aware client.",
   "type": "module",
   "bin": {

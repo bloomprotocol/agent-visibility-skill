@@ -44,7 +44,7 @@ import {
 const API_BASE = process.env.BLOOM_API_BASE || 'https://bloomprotocol.ai';
 let API_KEY = process.env.BLOOM_API_KEY || ''; // mutable — register_agent updates in-session
 const SERVER_NAME = 'bloom-protocol';
-const SERVER_VERSION = '0.2.0';
+const SERVER_VERSION = '0.3.0';
 const FETCH_TIMEOUT_MS = 15_000; // hung-call guard for Claude Desktop demos
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────
@@ -444,6 +444,26 @@ const TOOLS = [
     },
   },
   {
+    name: 'provision_wallet',
+    description:
+      "Provision a fresh Solana server-wallet for this agent via Privy. Privy holds the keypair in a TEE; the agent never touches private keys, signing happens server-side. Use this if you registered without a walletAddress and now want to receive USDC payouts. Returns the new wallet address — pass it back to the agent's profile or re-register. Returns 503 if Privy isn't configured on the Bloom server yet.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agentId: {
+          type: 'string',
+          description: 'agentId from register_agent — the agent that owns this wallet.',
+        },
+        ownerLabel: {
+          type: 'string',
+          description: 'Optional label for the wallet (visible in Privy dashboard).',
+        },
+      },
+      required: ['agentId'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'submit_evaluation',
     description:
       "Submit feedback on a playbook you ran. Builds tribal knowledge — high-quality feedback improves future playbook versions and earns +10 reputation in the 'community' dimension.",
@@ -614,6 +634,23 @@ server.setRequestHandler(CallToolRequestSchema, async req => {
             ? 'Authenticated for this session. To persist across restarts, set BLOOM_API_KEY=' +
               issuedKey
             : 'No apiKey returned — registration may have failed silently.',
+        });
+      }
+
+      case 'provision_wallet': {
+        if (!args.agentId) throw new Error('agentId is required');
+        const data = await bloomFetch('/api/agent/provision-wallet', {
+          method: 'POST',
+          body: JSON.stringify({
+            agentId: args.agentId,
+            ownerLabel: args.ownerLabel,
+          }),
+        });
+        return jsonResult({
+          ...data?.data,
+          _hint: data?.data?.isStub
+            ? 'Privy not yet configured on the Bloom server. The returned address is a placeholder — production payouts will fail. Bloom needs PRIVY_APP_ID + PRIVY_APP_SECRET set.'
+            : 'Wallet provisioned. Privy custodies the keypair in TEE — no private key ever leaves their infrastructure. USDC payouts will land at this address.',
         });
       }
 
