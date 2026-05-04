@@ -101,7 +101,7 @@ Content-Type: application/json
       { "action": "Add CLAUDE.md project context", "lift": 10, "axis": "insight", "how": "Create CLAUDE.md describing your product, target users, competitors" },
       { "action": "Run first Visibility mission", "lift": 12, "axis": "insight", "how": "Activate the Visibility Loop skill (link below)" }
     ],
-    "tribe":         { "id": "launch", "claims": 12, "threshold": 200, "estimating": true },
+    "tribe":         { "id": "grow", "claims": 12, "threshold": 200, "estimating": true },
     "signature":     "v0.1.0:9f2c...",                  // for cross-version verification
     "reportId":      "rpt_...",                         // unique per run, for ratchet history
     "dashboardToken":"rt_...",                          // read-only token for the URL in Step 5
