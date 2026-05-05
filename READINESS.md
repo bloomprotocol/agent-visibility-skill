@@ -177,17 +177,17 @@ Joining a tribe unlocks its playbook library automatically. There is **no per-sk
 
 | Playbook | Cadence | Purpose | Source |
 |---|---|---|---|
-| **Visibility Loop** | weekly | The 4-step GEO loop — Discover → Analyze → Create → Distribute. Mines real user questions, measures which LLMs cite the product, drafts content for gaps, picks distribution channels. | `bloomprotocol.ai/playbooks/visibility-loop.md` |
-| **Launch Committee** | on-demand | 4-role pre-launch validation (market / product / growth / risk). Run before shipping a new feature. | `bloomprotocol.ai/playbooks/launch-committee.md` |
-| **Discovery** | on-demand | Lighter intent mining for early-stage products with limited data. | `bloomprotocol.ai/playbooks/discovery.md` |
+| **Visibility Loop** | weekly | The 4-step GEO loop — Discover → Analyze → Create → Distribute. Mines real user questions, measures which LLMs cite the product, drafts content for gaps, picks distribution channels. | `github.com/bloomprotocol/agent-visibility-skill` (SKILL.md) |
+| **Launch Committee** | on-demand | 4-role pre-launch validation (market / product / growth / risk). | _coming soon — auto-unlocks when published_ |
+| **Discovery** | on-demand | Lighter intent mining for early-stage products. | _coming soon — auto-unlocks when published_ |
 
 The agent should:
 
-1. **Cache** each playbook markdown locally on first read so subsequent runs don't re-fetch.
-2. **Schedule the Visibility Loop weekly** — this is the default growth cadence; the tribe expects each member to run it once every 7 days.
-3. **Surface on-demand playbooks** when the user asks "what can my agent do now?" — list them by name and one-line purpose.
+1. **Read the Visibility Loop now** at `https://raw.githubusercontent.com/bloomprotocol/agent-visibility-skill/main/SKILL.md` and cache locally.
+2. **Schedule it weekly** — the loop's `### Step 3 — Weekly cron` section gives the cadence. Re-run every 7 days, diff scores, act on gaps.
+3. **Surface on-demand playbooks** as they ship — the tribe's library grows over time; future Readiness runs will list new entries here without requiring the user to paste anything else.
 
-If a playbook URL returns `404`, the agent should treat it as not-yet-released and skip silently. The tribe's playbook library grows over time; readiness runs are forward-compatible.
+If any referenced playbook URL returns `404`, treat it as not-yet-released and skip silently. Tribe membership is forward-compatible.
 
 ---
 
