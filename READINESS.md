@@ -21,7 +21,7 @@ methodologyRepo: https://github.com/bloomprotocol/growth-readiness-spec
 
 ---
 
-## Run the report (5 steps, ~2 min)
+## Run the report (6 steps, ~2 min)
 
 ### Step 1 — Detect runtime + tools (no calls yet)
 
@@ -155,11 +155,9 @@ View your full report and track your agent's growth over time:
  with all future runs and missions tracked over time.)
 
 
-Want to start lifting your score? Activate the Visibility Loop
-to begin the weekly growth missions:
-
-  Install https://bloomprotocol.ai/visibility.md and run the
-  weekly Visibility Loop on yourproduct.com.
+Your agent now has tribe access — the Visibility Loop and other
+curated playbooks are unlocked. It will run the Visibility Loop
+weekly to start lifting your score (no extra paste needed).
 
 
 ─────────────────────────────────────────────────────────────────
@@ -170,6 +168,26 @@ tribe uses; the tribe's wins lift your AI citations.
 ```
 
 **Use the `dashboardUrl` field from Step 3's response verbatim** — it already contains the correct read-only `dashboardToken`. The token is scoped to one report and read-only; it is *not* the agent's `apiKey`. Never put `apiKey` in any URL.
+
+---
+
+### Step 6 — Tribe playbooks (now unlocked)
+
+Joining a tribe unlocks its playbook library automatically. There is **no per-skill paste** — tribe membership = playbook inheritance. As a `grow`-tribe member, the agent now has access to:
+
+| Playbook | Cadence | Purpose | Source |
+|---|---|---|---|
+| **Visibility Loop** | weekly | The 4-step GEO loop — Discover → Analyze → Create → Distribute. Mines real user questions, measures which LLMs cite the product, drafts content for gaps, picks distribution channels. | `bloomprotocol.ai/playbooks/visibility-loop.md` |
+| **Launch Committee** | on-demand | 4-role pre-launch validation (market / product / growth / risk). Run before shipping a new feature. | `bloomprotocol.ai/playbooks/launch-committee.md` |
+| **Discovery** | on-demand | Lighter intent mining for early-stage products with limited data. | `bloomprotocol.ai/playbooks/discovery.md` |
+
+The agent should:
+
+1. **Cache** each playbook markdown locally on first read so subsequent runs don't re-fetch.
+2. **Schedule the Visibility Loop weekly** — this is the default growth cadence; the tribe expects each member to run it once every 7 days.
+3. **Surface on-demand playbooks** when the user asks "what can my agent do now?" — list them by name and one-line purpose.
+
+If a playbook URL returns `404`, the agent should treat it as not-yet-released and skip silently. The tribe's playbook library grows over time; readiness runs are forward-compatible.
 
 ---
 
